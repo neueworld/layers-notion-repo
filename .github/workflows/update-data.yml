@@ -20,7 +20,7 @@ jobs:
         run: npm install
 
       - name: Run script to update Webflow CMS
-        run: node scripts/index.js  # Replace with the path to your JS file
+        run: node scripts/index.mjs  # Replace with the path to your JS file
         env:
           GT_TOKEN: ${{ secrets.GT_TOKEN }}
           WEBFLOW_API_TOKEN: ${{ secrets.WEBFLOW_API_TOKEN }} 
