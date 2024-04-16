@@ -83,10 +83,42 @@ async function getPageTitle(pageId) {
       return null;
     }
   }
+  async function closeFirstOpenIssue(owner, repo) {
+    try {
+      // Fetch the list of open issues
+      const issues = await octokit.rest.issues.listForRepo({
+        owner,
+        repo,
+        state: "open"
+      });
+  
+      // Check if there are any open issues
+      if (issues.data.length === 0) {
+        console.log("No open issues found.");
+        return;
+      }
+  
+      // Get the first open issue
+      const issue = issues.data[0];
+  
+      // Close the issue
+      const updateResponse = await octokit.rest.issues.update({
+        owner,
+        repo,
+        issue_number: issue.number,
+        state: "closed"
+      });
+  
+      console.log(`Issue #${issue.number} has been closed.`);
+      console.log(`Status: ${updateResponse.status}`);
+    } catch (error) {
+      console.error("Error closing the issue:", error);
+    }
+  }
   
 (async () => {
 
-const data = await fetchOpenIssues('neueworld', 'Layers-Docs');
+const data = await fetchOpenIssues('neueworld', 'layers-notion-repo');
 const pageId = data[0].trim()
 
   const pageTitle = await getPageTitle(pageId)
@@ -118,7 +150,10 @@ const pageId = data[0].trim()
     //     // Here you can add more logic to process each item
     //   });
     // });
-  
+
+    /**Close the issue at the end */
+    await closeFirstOpenIssue('neueworld', 'layers-notion-repo');
+
 
 })();
 
