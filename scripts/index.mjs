@@ -118,42 +118,70 @@ async function getPageTitle(pageId) {
   
 (async () => {
 
-const data = await fetchOpenIssues('neueworld', 'layers-notion-repo');
-const pageId = data[0].trim()
+  const issues = await fetchOpenIssues('neueworld', 'layers-notion-repo');
+  console.log(issues)
+  if (issues.length === 0) {
+    console.log("No open issues found.");
+    return;
+  }
+
+const pageId = issues[0].trim()
 
   const pageTitle = await getPageTitle(pageId)
 
-  console.log("The page is : ",pageTitle)
-  const response = await notion.blocks.children.list({
-    block_id: pageId,
-    page_size: 50, // you can adjust the page size up to a max of 100
-    });
-   console.log(response.results)
-   const pageData = extractContent(response.results)
-   const htmldata = convertToHTML(pageData)
-
-  /**push the HTML content to webflow CMS */
-    /**Create a new webflow 
-     * 1. Collection
-     * 2. Item in Collection (Current one)
-     */
-
+  for (const issue of issues) {
+    if (!pageTitle) {
+      console.log(`Invalid or null page title for page ID ${pageId}`);
+      continue; // Skip this issue
+    }
 
     const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
-    await createCollectionItem('6613d5ab30544bc293e55431',{name: pageTitle,slug:slug,data:htmldata})
-    // const allCollectionItems = await getAllCollectionItems(siteId);
-    // console.log(allCollectionItems)
-    // allCollectionItems.forEach(collection => {
-    //   console.log(`Processing collection with ID: ${collection.collectionId}`);
-    //   collection.items.forEach(item => {
-    //     console.log(`Item ID: ${item.id}, Name: ${item.fieldData.name}, Slug: ${item.fieldData.slug}`);
-    //     // Here you can add more logic to process each item
-    //   });
-    // });
+    const allCollectionItems = await getAllCollectionItems(siteId);
 
-    /**Close the issue at the end */
-    await closeFirstOpenIssue('neueworld', 'layers-notion-repo');
 
+    let existingTitle = false;
+
+    // Loop through each collection and its items to check for duplicate titles
+    allCollectionItems.forEach(collection => {
+      collection.items.forEach(item => {
+        if (item.fieldData.name.toLowerCase() === pageTitle.toLowerCase()) {
+          existingTitle = true;
+          console.log(`Duplicate found for title: ${pageTitle}`);
+        }
+      });
+    });
+  
+    if (existingTitle) {
+      console.log(`Duplicate slug or title found: ${pageTitle}`);
+      continue; // Skip this issue
+    }
+
+
+    const response = await notion.blocks.children.list({
+      block_id: pageId,
+      page_size: 50,
+    });
+
+    if (!response.results || response.results.length === 0) {
+      console.log(`No content found for page ID ${pageId}`);
+      continue; // Skip this issue
+    }
+
+    const pageData = extractContent(response.results);
+    const htmlData = convertToHTML(pageData);
+
+    if (!htmlData) {
+      console.log(`HTML conversion failed for page ID ${pageId}`);
+      continue; // Skip this issue
+    }
+
+
+    await createCollectionItem('6613d5ab30544bc293e55431', { name: pageTitle, slug: slug, data: htmlData });
+    console.log(`Created collection item with title: ${pageTitle}`);
+
+  }
+
+  await closeFirstOpenIssue('neueworld','layers-notion-repo')
 
 })();
 
