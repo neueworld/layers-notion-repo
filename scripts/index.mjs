@@ -75,7 +75,7 @@ async function fetchOpenIssues(owner, repo) {
 async function getPageTitle(pageId) {
     try {
       const response = await notion.pages.retrieve({ page_id: pageId });
-      //console.log(response)
+      console.log("Page Title response : ",response)
       const title = response.properties.Name.title[0].plain_text; // Adjust 'Title' according to your page schema
       return title;
     } catch (error) {
@@ -116,76 +116,64 @@ async function getPageTitle(pageId) {
     }
   }
   
-(async () => {
+// (async () => {
 
-  const issues = await fetchOpenIssues('neueworld', 'layers-notion-repo');
-  console.log(issues)
-  if (issues.length === 0) {
-    console.log("No open issues found.");
-    return;
-  }
-
-const pageId = issues[0].trim()
-
-  const pageTitle = await getPageTitle(pageId)
-
-  for (const issue of issues) {
-    if (!pageTitle) {
-      console.log(`Invalid or null page title for page ID ${pageId}`);
-      continue; // Skip this issue
-    }
-
-    const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
-    const allCollectionItems = await getAllCollectionItems(siteId);
-
-
-    let existingTitle = false;
-
-    // Loop through each collection and its items to check for duplicate titles
-    allCollectionItems.forEach(collection => {
-      collection.items.forEach(item => {
-        if (item.fieldData.name.toLowerCase() === pageTitle.toLowerCase()) {
-          existingTitle = true;
-          console.log(`Duplicate found for title: ${pageTitle}`);
-        }
-      });
-    });
   
-    if (existingTitle) {
-      console.log(`Duplicate slug or title found: ${pageTitle}`);
-      continue; // Skip this issue
-    }
+
+//   const pageId = "c4f87517-def4-4f82-9557-12e4a6b9a2bd";
+//   const pageTitle = await getPageTitle(pageId)
+
+//   console.log("The Page Title is : ",pageTitle)
+
+//     const response = await notion.blocks.children.list({
+//       block_id: pageId,
+//       page_size: 50,
+//     });
 
 
-    const response = await notion.blocks.children.list({
-      block_id: pageId,
-      page_size: 50,
-    });
-
-    if (!response.results || response.results.length === 0) {
-      console.log(`No content found for page ID ${pageId}`);
-      continue; // Skip this issue
-    }
-
-    const pageData = extractContent(response.results);
-    const htmlData = convertToHTML(pageData);
-
-    if (!htmlData) {
-      console.log(`HTML conversion failed for page ID ${pageId}`);
-      continue; // Skip this issue
-    }
+//     const pageData = extractContent(response.results);
+//     console.log(pageData)
+//     const htmlData = convertToHTML(pageData);
 
 
-    await createCollectionItem('6613d5ab30544bc293e55431', { name: pageTitle, slug: slug, data: htmlData });
-    console.log(`Created collection item with title: ${pageTitle}`);
+//     console.log(htmlData)
 
-  }
 
-  await closeFirstOpenIssue('neueworld','layers-notion-repo')
+//    // await createCollectionItem('6613d5ab30544bc293e55431', { name: pageTitle, slug: slug, data: htmlData });
+//    // console.log(`Created collection item with title: ${pageTitle}`);
 
-})();
+  
+
+//   //await closeFirstOpenIssue('neueworld','layers-notion-repo')
+
+// })();
 
 
 
 /**Docs Collection ID: 6613d5ab30544bc293e55431 */
+
+import axios from 'axios'
+
+// Endpoint URL of your serverless function
+const functionUrl = 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-b22ceea5-ced4-4583-b687-5a5d7a133dab/sample/hello'; // Update with your function's URL';
+
+async function callServerlessFunction() {
+  const url = functionUrl
+  const data = {
+      name: 'John'
+  };
+
+  try {
+      const response = await axios.post(url, data);
+      console.log('Response:', response.data);
+  } catch (error) {
+      console.error('Error calling serverless function:', error.message);
+  }
+}
+
+callServerlessFunction();
+
+/**
+ * 
+*/
 

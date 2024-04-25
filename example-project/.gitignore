@@ -1,0 +1,15 @@
+.nimbella
+.deployed
+__deployer__.zip
+__pycache__/
+node_modules
+package-lock.json
+.DS_Store
+# Node modules
+node_modules/
+
+# History folder
+.history/
+
+# Environment variables
+.env
