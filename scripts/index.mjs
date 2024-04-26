@@ -1,10 +1,14 @@
 import { Client } from '@notionhq/client';
 import { Octokit } from "@octokit/rest";
 import {getAllCollectionItems,createCollectionItem} from './webflow.mjs';
+import { WebflowClient, Webflow } from 'webflow-api';
 import 'dotenv/config'
+import axios from 'axios'
 
+// Initialize the Webflow API
+const api = new WebflowClient({ token: process.env.WEBFLOW_API_TOKEN }); // Replace 'your_api_token_here' with your actual Webflow API token
 
-const notion = new Client({ auth: process.env.NOTION_API_KEY });
+const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const siteId = "660e763c275e50fdf03ef908";
 
 const octokit = new Octokit({
@@ -55,23 +59,37 @@ function convertToHTML(data) {
   
     return htmlContent;
   }
+async function updateWebflowItem(collectionId, itemId, richTextContent, itemName, slug) {
+    const options = {
+      method: 'PATCH',
+      url: `https://api.webflow.com/v2/collections/${collectionId}/items/${itemId}`,
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        authorization: `Bearer ${process.env.WEBFLOW_API_TOKEN}` // Use your Webflow API token
+      },
+      data: {
+        isArchived: false,
+        isDraft: false,
+        fieldData: {
+          name: itemName,
+          slug: slug,
+          data: richTextContent
+        }
+      }
+    };
   
-  
-  
-async function fetchOpenIssues(owner, repo) {
     try {
-      const response = await octokit.rest.issues.listForRepo({
-        owner,
-        repo,
-        state: 'open'  // Fetch only open issues
-      });
-      return response.data.map(issue => issue.body); // Returns an array of the body text of each issue
+      //await publishCollectionItem(collectionId, [itemId])
+      const response = await axios.request(options);
+      console.log('Item updated successfully:', response.data);
+      return true
     } catch (error) {
-      console.error('Error fetching issues:', error);
-      return []; // Return an empty array in case of error
+        return false;
+    
     }
   }
-  
+
 async function getPageTitle(pageId) {
     try {
       const response = await notion.pages.retrieve({ page_id: pageId });
@@ -115,63 +133,84 @@ async function getPageTitle(pageId) {
       console.error("Error closing the issue:", error);
     }
   }
-  
-// (async () => {
+async function getItemData(collectionId, itemId) {
+    const options = {
+        method: 'GET',
+        url: `https://api.webflow.com/v2/collections/${collectionId}/items/${itemId}`,
+        headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${process.env.WEBFLOW_API_TOKEN}`
+        }
+    };
+
+    try {
+        const response = await axios.request(options);
+        console.log(response.data);
+        return response.data; // Returning the data might be useful for further processing
+    } catch (error) {
+        console.error('Error fetching item data:', error);
+        return null; // Optionally, return null or handle the error as needed
+    }
+}
+
+
+(async () => {
 
   
 
-//   const pageId = "c4f87517-def4-4f82-9557-12e4a6b9a2bd";
-//   const pageTitle = await getPageTitle(pageId)
+  const pageId = "c4f87517-def4-4f82-9557-12e4a6b9a2bd";
+  const pageTitle = await getPageTitle(pageId)
+  const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
 
-//   console.log("The Page Title is : ",pageTitle)
+  console.log("The Page Title is : ",pageTitle)
 
-//     const response = await notion.blocks.children.list({
-//       block_id: pageId,
-//       page_size: 50,
-//     });
-
-
-//     const pageData = extractContent(response.results);
-//     console.log(pageData)
-//     const htmlData = convertToHTML(pageData);
+    const response = await notion.blocks.children.list({
+      block_id: pageId,
+      page_size: 50,
+    });
 
 
-//     console.log(htmlData)
+    const pageData = extractContent(response.results);
+    console.log(pageData)
+    const htmlData = convertToHTML(pageData);
 
 
-//    // await createCollectionItem('6613d5ab30544bc293e55431', { name: pageTitle, slug: slug, data: htmlData });
-//    // console.log(`Created collection item with title: ${pageTitle}`);
+    console.log(htmlData)
 
-  
+   // await updateWebflowItem("6613d5ab30544bc293e55431","661ea66da638b95c8b9e75ea",{ name: pageTitle, slug: slug, data: htmlData })
+   // await createCollectionItem('6613d5ab30544bc293e55431', { name: pageTitle, slug: slug, data: htmlData });
+   // console.log(`Created collection item with title: ${pageTitle}`);
 
-//   //await closeFirstOpenIssue('neueworld','layers-notion-repo')
+  const data = await getItemData('6613d5ab30544bc293e55431','661ea66da638b95c8b9e75ea')
+  console.log(data)
+  //await closeFirstOpenIssue('neueworld','layers-notion-repo')
 
-// })();
+})();
 
 
 
 /**Docs Collection ID: 6613d5ab30544bc293e55431 */
 
-import axios from 'axios'
+// import axios from 'axios'
 
-// Endpoint URL of your serverless function
-const functionUrl = 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-b22ceea5-ced4-4583-b687-5a5d7a133dab/sample/hello'; // Update with your function's URL';
+// // Endpoint URL of your serverless function
+// const functionUrl = 'https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-b22ceea5-ced4-4583-b687-5a5d7a133dab/sample/hello'; // Update with your function's URL';
 
-async function callServerlessFunction() {
-  const url = functionUrl
-  const data = {
-      name: 'John'
-  };
+// async function callServerlessFunction() {
+//   const url = functionUrl
+//   const data = {
+//       name: 'John'
+//   };
 
-  try {
-      const response = await axios.post(url, data);
-      console.log('Response:', response.data);
-  } catch (error) {
-      console.error('Error calling serverless function:', error.message);
-  }
-}
+//   try {
+//       const response = await axios.post(url, data);
+//       console.log('Response:', response.data);
+//   } catch (error) {
+//       console.error('Error calling serverless function:', error.message);
+//   }
+// }
 
-callServerlessFunction();
+// callServerlessFunction();
 
 /**
  * 

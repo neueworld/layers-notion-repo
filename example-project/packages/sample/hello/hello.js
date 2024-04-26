@@ -1,11 +1,13 @@
 const axios = require('axios');
 const { Client } = require('@notionhq/client');
+const mongoose = require('mongoose');
+const Item = require('./schema'); // Assuming the schema file is named CollectionItemModel.js
+
 require('dotenv').config()
 
 const notion = new Client({
     auth: process.env.NOTION_TOKEN, // Set your integration token as an environment variable
 });
-
 
 function extractContent(blocks) {
     return blocks.map(block => {
@@ -76,22 +78,25 @@ async function updateWebflowItem(collectionId, itemId, richTextContent, itemName
       //await publishCollectionItem(collectionId, [itemId])
       const response = await axios.request(options);
       console.log('Item updated successfully:', response.data);
-      return true
+      //return true
     } catch (error) {
-        return false;
+        //return false;
     
     }
   }
   
-  async function getPageTitle(pageId) {
+async function getPageTitle(pageId) {
     try {
       // Fetch the page object based on the page ID
       const response = await notion.pages.retrieve({ page_id: pageId });
-      
-      // Notion pages can have multiple title properties if there are multiple databases/views.
-      // This example assumes there is a single title in the default "title" property of the page.
-      const titleProperty = response.properties.title;
-      
+
+      // Corrected to use 'Name' property as per your Notion API structure
+      const titleProperty = response.properties.Name;
+
+      console.log("titleProperty : ", titleProperty);
+      console.log("TitlePageId: ", pageId);
+      console.log("ResponseTitle : ", response);
+
       if (titleProperty && titleProperty.type === 'title' && titleProperty.title.length > 0) {
         // Retrieve the plain text of the title
         return titleProperty.title[0].plain_text;
@@ -103,136 +108,168 @@ async function updateWebflowItem(collectionId, itemId, richTextContent, itemName
       console.error('Error retrieving page title:', error);
       return null;
     }
-  }
-  
-
-async function appendToNotionPage(pageId, content) {
-    try {
-        const blockId = pageId; // In Notion, Page ID and Block ID are often the same for top-level page blocks
-        const response = await notion.blocks.children.append({
-            block_id: blockId,
-            children: [
-                {
-                    object: 'block',
-                    type: 'paragraph',
-                    paragraph: {
-                        rich_text: [ // Corrected from 'text' to 'rich_text'
-                            {
-                                type: 'text',
-                                text: {
-                                    content: content,
-                                    link: null
-                                }
-                            }
-                        ]
-                    }
-                }
-            ]
-        });
-        console.log("Block appended:", response);
-        return response;
-    } catch (error) {
-        console.error("Error appending to Notion page:", error);
-        return null;
-    }
 }
 
-
-exports.main = async function(event, context) {
-
-
-    // Decode the Base64 encoded body
-    const decodedBody = Buffer.from(event.__ow_body, 'base64').toString('utf-8');
-    let parsedBody;
-    let pageId;
-
-    try {
-        parsedBody = JSON.parse(decodedBody);
-        pageId = parsedBody.pageId
-    } catch (e) {
-        return {
-            statusCode: 400,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ error: "Failed to parse JSON from body" })
-        };
-    }
-
-         const pageTitle = await getPageTitle(pageId)
-         console.log("pageTitle : ",pageTitle)
-         const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
-        
-      const response = await notion.blocks.children.list({
-        block_id: pageId,
-        page_size: 50,
-    });
-
-        console.log(response)
-
-        const pageData = extractContent(response.results);
-        console.log(pageData)
-        const htmlData = convertToHTML(pageData);
-
-        if (!htmlData) {
-        console.log(`HTML conversion failed for page ID ${pageId}`);
-        }
-
-        console.log(htmlData)
-
-        
-      const webflow_update = await updateWebflowItem('6613d5ab30544bc293e55431', "661ea66da638b95c8b9e75ea", htmlData,"Overview","overview" );
-      if(!webflow_update){
-        return {
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: "Webflow update failed"})
-        };
+async function findItemByNameAndSlug(name, slug) {
+  try {
+      const item = await Item.findOne({ name: name, slug: slug }, 'collectionId itemId');
+      if (item) {
+          return { collectionId: item.collectionId, itemId: item.itemId };
+      } else {
+          return null;
       }
+  } catch (error) {
+      console.error('Error finding item:', error);
+      throw error;
+  }
+}
 
-    //await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
-    return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Received page ID", pageId: pageId,pageTitle:pageTitle})
-    };
+const connectToDatabase = () => {
+  if (mongoose.connection.readyState === 1) return Promise.resolve();
+  return mongoose.connect(process.env.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true });
 };
 
-// async function main(pageId) {
+
+async function main() {
+  await connectToDatabase(); // Ensure the database connection is reused
+
+  try {
+    // Parse event to get name and slug, assuming they are passed as JSON in the body
+    //const data = JSON.parse(event.body);
+    //const { name, slug } = data;
+    const name = "Senior Data Analyst";
+    const slug = "senior-data-analyst";
+
+    const item = await Item.findOne({ name: name, slug: slug });
+    console.log("item : ",item)
+    if (!item) {
+      return {
+        statusCode: 404,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: "Item not found" })
+      };
+    }
+
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: "Item found", item: item })
+    };
+
+  } catch (error) {
+    console.error("Database operation failed", error);
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: "Internal Server Error", details: error.message })
+    };
+  }
+};
+
+main()
+// exports.main = async function(event, context) {
 
 
-//         console.log("Token : ",process.env.NOTION_TOKEN)
+
+//     /**connect with mongoDB */
+//     //await connectToDatabase()
+//     // Decode the Base64 encoded body
+//     const decodedBody = Buffer.from(event.__ow_body, 'base64').toString('utf-8');
+//     let parsedBody;
+//     let pageId;
+
+//         try {
+//             parsedBody = JSON.parse(decodedBody);
+//             pageId = parsedBody.pageId
+//         } catch (e) {
+//             return {
+//                 statusCode: 400,
+//                 headers: { 'Content-Type': 'application/json' },
+//                 body: JSON.stringify({ error: "Failed to parse JSON from body" })
+//             };
+//         }
+
 //          const pageTitle = await getPageTitle(pageId)
 //          console.log("pageTitle : ",pageTitle)
 //          const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
-        
-//       const response = await notion.blocks.children.list({
-//         block_id: pageId,
-//         page_size: 50,
-//     });
+//         /**
+//          * Fetch the collection and check whether the item exist in any collection or not
+//          * If item exist, fetch the collection and Item id and update data
+//          * If doesn't exist, Create new item and push the data.
+//          */
 
-//         console.log(response)
+//         const response = await notion.blocks.children.list({
+//             block_id: pageId,
+//             page_size: 50,
+//         });
+
 
 //         const pageData = extractContent(response.results);
 //         console.log(pageData)
 //         const htmlData = convertToHTML(pageData);
 
 //         if (!htmlData) {
-//         console.log(`HTML conversion failed for page ID ${pageId}`);
-//         }
-
-//         console.log(htmlData)
-
+//           return {
+//             statusCode: 200,
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({ message: `HTML conversion failed for page ID ${pageId}`})
+//         };
+//       }
+    
         
-//       await updateWebflowItem('6613d5ab30544bc293e55431', "661ea66da638b95c8b9e75ea", htmlData,"Overview","overview" );
+//      // await updateWebflowItem('6613d5ab30544bc293e55431', "661ea66da638b95c8b9e75ea", htmlData,"Overview","overview" );
+//       // if(!webflow_update){
+//       //   return {
+//       //       statusCode: 400,
+//       //       headers: { 'Content-Type': 'application/json' },
+//       //       body: JSON.stringify({ message: "Webflow update failed"})
+//       //   };
+//       // }
 
-
-//     //await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
+//    // await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
 //     return {
 //         statusCode: 200,
 //         headers: { 'Content-Type': 'application/json' },
 //         body: JSON.stringify({ message: "Received page ID", pageId: pageId,pageTitle:pageTitle})
 //     };
 // };
-// //exports.main = main
-// main(
-//     "c4f87517-def4-4f82-9557-12e4a6b9a2bd"
-// )
+
+
+
+
+
+
+
+
+
+// async function appendToNotionPage(pageId, content) {
+//     try {
+//         const blockId = pageId; // In Notion, Page ID and Block ID are often the same for top-level page blocks
+//         const response = await notion.blocks.children.append({
+//             block_id: blockId,
+//             children: [
+//                 {
+//                     object: 'block',
+//                     type: 'paragraph',
+//                     paragraph: {
+//                         rich_text: [ // Corrected from 'text' to 'rich_text'
+//                             {
+//                                 type: 'text',
+//                                 text: {
+//                                     content: content,
+//                                     link: null
+//                                 }
+//                             }
+//                         ]
+//                     }
+//                 }
+//             ]
+//         });
+//         console.log("Block appended:", response);
+//         return response;
+//     } catch (error) {
+//         console.error("Error appending to Notion page:", error);
+//         return null;
+//     }
+// }
+
