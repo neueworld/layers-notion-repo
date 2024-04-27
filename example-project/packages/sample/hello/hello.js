@@ -83,8 +83,32 @@ async function updateWebflowItem(collectionId, itemId, richTextContent, itemName
         //return false;
     
     }
+}
+
+const createCollectionItem = async (collectionId,fieldData) => {
+  const options = {
+    method: 'POST',
+    url: `https://api.webflow.com/v2/collections/${collectionId}/items/`,
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      authorization: `Bearer ${process.env.WEBFLOW_API_TOKEN}` // Replace with your Webflow API token
+    },
+    data: {
+      isArchived: false,
+      isDraft: false,
+      fieldData: fieldData
+    }
+  };
+
+  try {
+    const response = await axios.request(options);
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
   }
-  
+};  
 async function getPageTitle(pageId) {
     try {
       // Fetch the page object based on the page ID
@@ -92,10 +116,6 @@ async function getPageTitle(pageId) {
 
       // Corrected to use 'Name' property as per your Notion API structure
       const titleProperty = response.properties.Name;
-
-      console.log("titleProperty : ", titleProperty);
-      console.log("TitlePageId: ", pageId);
-      console.log("ResponseTitle : ", response);
 
       if (titleProperty && titleProperty.type === 'title' && titleProperty.title.length > 0) {
         // Retrieve the plain text of the title
@@ -124,115 +144,205 @@ async function findItemByNameAndSlug(name, slug) {
   }
 }
 
+const addOrUpdateItem = async (name, slug, collectionId, itemId) => {
+  await connectToDatabase();
+
+  try {
+    const result = await Item.findOneAndUpdate(
+      { itemId: itemId }, // Find an item by itemId
+      { name, slug, collectionId, itemId }, // Update these fields
+      { new: true, upsert: true, runValidators: true } // Options: create if not exists, return new item
+    );
+
+    console.log("Item added or updated:", result);
+    return result;
+  } catch (error) {
+    console.error("Failed to add or update item:", error);
+    throw error;  // Rethrow or handle error as needed
+  } finally {
+    await mongoose.disconnect(); // Optionally disconnect if not in serverless
+  }
+};
+
 const connectToDatabase = () => {
   if (mongoose.connection.readyState === 1) return Promise.resolve();
   return mongoose.connect(process.env.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true });
 };
 
 
-async function main() {
-  await connectToDatabase(); // Ensure the database connection is reused
-
-  try {
-    // Parse event to get name and slug, assuming they are passed as JSON in the body
-    //const data = JSON.parse(event.body);
-    //const { name, slug } = data;
-    const name = "Senior Data Analyst";
-    const slug = "senior-data-analyst";
-
-    const item = await Item.findOne({ name: name, slug: slug });
-    console.log("item : ",item)
-    if (!item) {
-      return {
-        statusCode: 404,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Item not found" })
-      };
-    }
-
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: "Item found", item: item })
-    };
-
-  } catch (error) {
-    console.error("Database operation failed", error);
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: "Internal Server Error", details: error.message })
-    };
-  }
+const disconnectDatabase = async () => {
+  await mongoose.disconnect();
 };
 
-main()
-// exports.main = async function(event, context) {
+// async function main() {
 
+//   /**connect with mongoDB */
+//   await connectToDatabase()
 
+//   // Decode the Base64 encoded body
+//   let pageId = "c4f87517-def4-4f82-9557-12e4a6b9a2bd";
 
-//     /**connect with mongoDB */
-//     //await connectToDatabase()
-//     // Decode the Base64 encoded body
-//     const decodedBody = Buffer.from(event.__ow_body, 'base64').toString('utf-8');
-//     let parsedBody;
-//     let pageId;
+     
 
-//         try {
-//             parsedBody = JSON.parse(decodedBody);
-//             pageId = parsedBody.pageId
-//         } catch (e) {
-//             return {
-//                 statusCode: 400,
-//                 headers: { 'Content-Type': 'application/json' },
-//                 body: JSON.stringify({ error: "Failed to parse JSON from body" })
-//             };
+//        const pageTitle = await getPageTitle(pageId)
+//        console.log("pageTitle : ",pageTitle)
+//        const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
+//         let item
+//        try {
+//         item = await Item.findOne({ name: pageTitle, slug: slug });
+//         console.log("item : ",item)
+//         if (!item) {
+//           const itemData = await createCollectionItem("6613d5ab30544bc293e55431",{name:pageTitle,slug:slug,data:null})
+//           if(itemData){
+//             await addOrUpdateItem(pageTitle,slug,"6613d5ab30544bc293e55431",itemData.id)
+//             console.log("New item inserted in DB")
+//           }
+//           await disconnectDatabase(); 
 //         }
-
-//          const pageTitle = await getPageTitle(pageId)
-//          console.log("pageTitle : ",pageTitle)
-//          const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
-//         /**
-//          * Fetch the collection and check whether the item exist in any collection or not
-//          * If item exist, fetch the collection and Item id and update data
-//          * If doesn't exist, Create new item and push the data.
-//          */
-
-//         const response = await notion.blocks.children.list({
-//             block_id: pageId,
-//             page_size: 50,
-//         });
-
-
-//         const pageData = extractContent(response.results);
-//         console.log(pageData)
-//         const htmlData = convertToHTML(pageData);
-
-//         if (!htmlData) {
-//           return {
-//             statusCode: 200,
-//             headers: { 'Content-Type': 'application/json' },
-//             body: JSON.stringify({ message: `HTML conversion failed for page ID ${pageId}`})
+//        } catch (error) {
+//         console.error("Database operation failed", error);
+//         await disconnectDatabase(); // Ensure DB disconnects on error
+    
+//         return {
+//           statusCode: 500,
+//           headers: { 'Content-Type': 'application/json' },
+//           body: JSON.stringify({ error: "Internal Server Error", details: error.message })
 //         };
 //       }
-    
-        
-//      // await updateWebflowItem('6613d5ab30544bc293e55431', "661ea66da638b95c8b9e75ea", htmlData,"Overview","overview" );
-//       // if(!webflow_update){
-//       //   return {
-//       //       statusCode: 400,
-//       //       headers: { 'Content-Type': 'application/json' },
-//       //       body: JSON.stringify({ message: "Webflow update failed"})
-//       //   };
-//       // }
+//       console.log("The item exist : ",item.itemId)
+//       /**
+//        * Fetch the collection and check whether the item exist in any collection or not
+//        * If item exist, fetch the collection and Item id and update data
+//        * If doesn't exist, Create new item and push the data.
+//        */
 
-//    // await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
-//     return {
-//         statusCode: 200,
-//         headers: { 'Content-Type': 'application/json' },
-//         body: JSON.stringify({ message: "Received page ID", pageId: pageId,pageTitle:pageTitle})
-//     };
+//       const response = await notion.blocks.children.list({
+//           block_id: pageId,
+//           page_size: 50,
+//       });
+
+//       const pageData = extractContent(response.results);
+//       console.log(pageData)
+//       const htmlData = convertToHTML(pageData);
+
+//       if (!htmlData) {
+//         return {
+//           statusCode: 200,
+//           headers: { 'Content-Type': 'application/json' },
+//           body: JSON.stringify({ message: `HTML conversion failed for page ID ${pageId}`})
+//       };
+//     }
+  
+      
+//    // await updateWebflowItem('6613d5ab30544bc293e55431', "661ea66da638b95c8b9e75ea", htmlData,"Overview","overview" );
+//     // if(!webflow_update){
+//     //   return {
+//     //       statusCode: 400,
+//     //       headers: { 'Content-Type': 'application/json' },
+//     //       body: JSON.stringify({ message: "Webflow update failed"})
+//     //   };
+//     // }
+
+//  // await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
+//   return {
+//       statusCode: 200,
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({ message: "Received page ID", pageId: pageId,pageTitle:pageTitle})
+//   };
 // };
+
+//main()
+exports.main = async function(event, context) {
+
+    /**connect with mongoDB */
+    await connectToDatabase()
+
+    // Decode the Base64 encoded body
+    const decodedBody = Buffer.from(event.__ow_body, 'base64').toString('utf-8');
+    let parsedBody;
+    let pageId;
+
+    try {
+      parsedBody = JSON.parse(decodedBody);
+      pageId = parsedBody.pageId
+    } catch (e) {
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: "Failed to parse JSON from body" })
+        };
+      }
+
+    const pageTitle = await getPageTitle(pageId)
+    console.log("pageTitle : ",pageTitle)
+    const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
+
+    let item;
+
+    try {
+      item = await Item.findOne({ name: pageTitle, slug: slug });
+      if (!item) {
+        /**Create the item in default collection in webflow */
+        const itemData = await createCollectionItem("6613d5ab30544bc293e55431",{name:pageTitle,slug:slug,data:null})
+        if(itemData){
+          /**Warning PageTitle shouldn't be null, or undefined*/
+          await addOrUpdateItem(pageTitle,slug,"6613d5ab30544bc293e55431",itemData.id)
+          console.log("New item inserted in DB")
+          item = itemData;
+        }
+          await disconnectDatabase(); 
+        }
+      } catch (error) {
+        console.error("Database operation failed", error);
+        await disconnectDatabase(); 
+        return {
+          statusCode: 500,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: "Internal Server Error", details: error.message })
+        };
+      }      
+        /**
+         * Fetch the collection and check whether the item exist in any collection or not
+         * If item exist, fetch the collection and Item id and update data
+         * If doesn't exist, Create new item and push the data.
+         */
+
+        const response = await notion.blocks.children.list({
+            block_id: pageId,
+            page_size: 50,
+        });
+
+
+        const pageData = extractContent(response.results);
+        console.log(pageData)
+        const htmlData = convertToHTML(pageData);
+
+        if (!htmlData) {
+          return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: `HTML conversion failed for page ID ${pageId}`})
+        };
+      }
+    
+      console.log("item data :",item.itemId) 
+      await updateWebflowItem('6613d5ab30544bc293e55431', item.id, htmlData,pageTitle,slug);
+      if(!webflow_update){
+        return {
+            statusCode: 400,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: "Webflow update failed"})
+        };
+      }
+
+    await disconnectDatabase()
+   // await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
+    return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message:"Data Updated Successfully"})
+    };
+};
 
 
 
