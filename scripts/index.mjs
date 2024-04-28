@@ -90,12 +90,25 @@ async function updateWebflowItem(collectionId, itemId, richTextContent, itemName
     }
   }
 
+
+  
 async function getPageTitle(pageId) {
     try {
       const response = await notion.pages.retrieve({ page_id: pageId });
-      console.log("Page Title response : ",response)
-      const title = response.properties.Name.title[0].plain_text; // Adjust 'Title' according to your page schema
-      return title;
+     // console.log("Page Title response : ",response)
+      const notionPageObject = response.properties;
+      const pageTitle = notionPageObject.Name.title[0].plain_text;
+      const type = notionPageObject.Type.select.name;
+      const tags = notionPageObject.Tags.select.name;
+      const categories = notionPageObject.Category.multi_select.map(cat => cat.name);
+    
+      return {
+        pageTitle,
+        type,
+        tags,
+        categories,
+      };
+
     } catch (error) {
       console.error('Error retrieving page title:', error);
       return null;
@@ -153,38 +166,65 @@ async function getItemData(collectionId, itemId) {
     }
 }
 
+const connectToDatabase = () => {
+  if (mongoose.connection.readyState === 1) return Promise.resolve();
+  return mongoose.connect(process.env.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true });
+};
+
+
+const disconnectDatabase = async () => {
+  await mongoose.disconnect();
+};
+
+const createCollectionItemV2 = async (collectionId,fieldData) => {
+  const options = {
+    method: 'POST',
+    url: `https://api.webflow.com/v2/collections/${collectionId}/items/`,
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      authorization: `Bearer ${process.env.WEBFLOW_API_TOKEN}` // Replace with your Webflow API token
+    },
+    data: {
+      isArchived: false,
+      isDraft: false,
+      fieldData: fieldData
+    }
+  };
+
+  try {
+    const response = await axios.request(options);
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
+
+async function getCollectionItem(collectionId, itemId) {
+    const options = {
+        method: 'GET',
+        url: `https://api.webflow.com/v2/collections/${collectionId}/items/${itemId}`,
+        headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${process.env.WEBFLOW_API_TOKEN}`  // Replace 'your-webflow-api-token' with your actual Webflow API token
+        }
+    };
+
+    try {
+        const response = await axios.request(options);
+        console.log(response.data);
+        return response.data;  // Returns the entire item data
+    } catch (error) {
+        console.error('Error retrieving collection item:', error.message);
+        throw new Error(error);
+    }
+}
 
 (async () => {
 
-  
-
-  const pageId = "c4f87517-def4-4f82-9557-12e4a6b9a2bd";
-  const pageTitle = await getPageTitle(pageId)
-  const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
-
-  console.log("The Page Title is : ",pageTitle)
-
-    const response = await notion.blocks.children.list({
-      block_id: pageId,
-      page_size: 50,
-    });
-
-
-    const pageData = extractContent(response.results);
-    console.log(pageData)
-    const htmlData = convertToHTML(pageData);
-
-
-    console.log(htmlData)
-
-   // await updateWebflowItem("6613d5ab30544bc293e55431","661ea66da638b95c8b9e75ea",{ name: pageTitle, slug: slug, data: htmlData })
-   // await createCollectionItem('6613d5ab30544bc293e55431', { name: pageTitle, slug: slug, data: htmlData });
-   // console.log(`Created collection item with title: ${pageTitle}`);
-
-  const data = await getItemData('6613d5ab30544bc293e55431','661ea66da638b95c8b9e75ea')
-  console.log(data)
-  //await closeFirstOpenIssue('neueworld','layers-notion-repo')
-
+   const item = await getCollectionItem("6613d5ab30544bc293e55431","662e31563352ee28d8ca4e55")
+   console.log(item.fieldData.data)
 })();
 
 

@@ -54,35 +54,39 @@ function convertToHTML(data) {
     return htmlContent;
   }
   
+
 async function updateWebflowItem(collectionId, itemId, richTextContent, itemName, slug) {
-    const options = {
-      method: 'PATCH',
-      url: `https://api.webflow.com/v2/collections/${collectionId}/items/${itemId}`,
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        authorization: `Bearer ${process.env.WEBFLOW_API_TOKEN}` // Use your Webflow API token
-      },
-      data: {
-        isArchived: false,
-        isDraft: false,
-        fieldData: {
-          name: itemName,
-          slug: slug,
-          data: richTextContent
-        }
+  const options = {
+    method: 'PATCH',
+    url: `https://api.webflow.com/v2/collections/${collectionId}/items/${itemId}`,
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      authorization: `Bearer ${process.env.WEBFLOW_API_TOKEN}` // Use your Webflow API token
+    },
+    data: {
+      isArchived: false,
+      isDraft: false,
+      fieldData: {
+        name: itemName,
+        slug: slug,
+        data: richTextContent
       }
-    };
-  
-    try {
-      //await publishCollectionItem(collectionId, [itemId])
-      const response = await axios.request(options);
-      console.log('Item updated successfully:', response.data);
-      //return true
-    } catch (error) {
-        //return false;
-    
     }
+  };
+
+  try {
+    //await publishCollectionItem(collectionId, [itemId])
+    const response = await axios.request(options);
+    console.log('Item updated successfully:', response.data);
+    return response.data; // Return the full response data for more insight if needed
+
+    //return true
+  } catch (error) {
+    console.error('Error updating item in Webflow:', error.response ? error.response.data : error.message);
+    throw new Error(`Failed to update item in Webflow: ${error.message}`);  // Throws an error to be caught by the caller
+  
+  }
 }
 
 const createCollectionItem = async (collectionId,fieldData) => {
@@ -145,7 +149,7 @@ async function findItemByNameAndSlug(name, slug) {
 }
 
 const addOrUpdateItem = async (name, slug, collectionId, itemId) => {
-  await connectToDatabase();
+  //await connectToDatabase();
 
   try {
     const result = await Item.findOneAndUpdate(
@@ -174,84 +178,7 @@ const disconnectDatabase = async () => {
   await mongoose.disconnect();
 };
 
-// async function main() {
 
-//   /**connect with mongoDB */
-//   await connectToDatabase()
-
-//   // Decode the Base64 encoded body
-//   let pageId = "c4f87517-def4-4f82-9557-12e4a6b9a2bd";
-
-     
-
-//        const pageTitle = await getPageTitle(pageId)
-//        console.log("pageTitle : ",pageTitle)
-//        const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
-//         let item
-//        try {
-//         item = await Item.findOne({ name: pageTitle, slug: slug });
-//         console.log("item : ",item)
-//         if (!item) {
-//           const itemData = await createCollectionItem("6613d5ab30544bc293e55431",{name:pageTitle,slug:slug,data:null})
-//           if(itemData){
-//             await addOrUpdateItem(pageTitle,slug,"6613d5ab30544bc293e55431",itemData.id)
-//             console.log("New item inserted in DB")
-//           }
-//           await disconnectDatabase(); 
-//         }
-//        } catch (error) {
-//         console.error("Database operation failed", error);
-//         await disconnectDatabase(); // Ensure DB disconnects on error
-    
-//         return {
-//           statusCode: 500,
-//           headers: { 'Content-Type': 'application/json' },
-//           body: JSON.stringify({ error: "Internal Server Error", details: error.message })
-//         };
-//       }
-//       console.log("The item exist : ",item.itemId)
-//       /**
-//        * Fetch the collection and check whether the item exist in any collection or not
-//        * If item exist, fetch the collection and Item id and update data
-//        * If doesn't exist, Create new item and push the data.
-//        */
-
-//       const response = await notion.blocks.children.list({
-//           block_id: pageId,
-//           page_size: 50,
-//       });
-
-//       const pageData = extractContent(response.results);
-//       console.log(pageData)
-//       const htmlData = convertToHTML(pageData);
-
-//       if (!htmlData) {
-//         return {
-//           statusCode: 200,
-//           headers: { 'Content-Type': 'application/json' },
-//           body: JSON.stringify({ message: `HTML conversion failed for page ID ${pageId}`})
-//       };
-//     }
-  
-      
-//    // await updateWebflowItem('6613d5ab30544bc293e55431', "661ea66da638b95c8b9e75ea", htmlData,"Overview","overview" );
-//     // if(!webflow_update){
-//     //   return {
-//     //       statusCode: 400,
-//     //       headers: { 'Content-Type': 'application/json' },
-//     //       body: JSON.stringify({ message: "Webflow update failed"})
-//     //   };
-//     // }
-
-//  // await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
-//   return {
-//       statusCode: 200,
-//       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify({ message: "Received page ID", pageId: pageId,pageTitle:pageTitle})
-//   };
-// };
-
-//main()
 exports.main = async function(event, context) {
 
     /**connect with mongoDB */
@@ -277,71 +204,86 @@ exports.main = async function(event, context) {
     console.log("pageTitle : ",pageTitle)
     const slug = pageTitle.toLowerCase().replace(/\s+/g, '-');
 
-    let item;
-
-    try {
-      item = await Item.findOne({ name: pageTitle, slug: slug });
-      if (!item) {
-        /**Create the item in default collection in webflow */
-        const itemData = await createCollectionItem("6613d5ab30544bc293e55431",{name:pageTitle,slug:slug,data:null})
-        if(itemData){
-          /**Warning PageTitle shouldn't be null, or undefined*/
-          await addOrUpdateItem(pageTitle,slug,"6613d5ab30544bc293e55431",itemData.id)
-          console.log("New item inserted in DB")
-          item = itemData;
-        }
-          await disconnectDatabase(); 
-        }
-      } catch (error) {
-        console.error("Database operation failed", error);
-        await disconnectDatabase(); 
-        return {
-          statusCode: 500,
+    if (!pageTitle || !slug) {
+      return {
+          statusCode: 400,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: "Internal Server Error", details: error.message })
+          body: JSON.stringify({ error: "Page title or slug is missing or invalid" })
+      };
+    }
+
+   try {
+        const response = await notion.blocks.children.list({
+            block_id: pageId,
+            page_size: 50,
+        });
+        const pageData = extractContent(response.results);
+        const htmlData = convertToHTML(pageData);
+        if (!htmlData) {
+            throw new Error('HTML conversion failed');
+        }
+
+
+        let item;
+
+        try {
+          item = await Item.findOne({ name: pageTitle, slug: slug });
+          if (!item) {
+            /**Create the item in default collection in webflow */
+            const itemData = await createCollectionItem("6613d5ab30544bc293e55431",{name:pageTitle,slug:slug,data:null})
+            if(itemData){
+              /**Warning PageTitle shouldn't be null, or undefined*/
+              item = await addOrUpdateItem(pageTitle,slug,"6613d5ab30544bc293e55431",itemData.id)
+              console.log("New item inserted in DB")
+            }
+            }
+          } catch (error) {
+            console.error("Database operation failed", error);
+            return {
+              statusCode: 500,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ error: "Internal Server Error", details: error.message })
+            };
+          }finally{
+            await disconnectDatabase();
+          }      
+
+          console.log("item data again :",item.itemId) 
+          try {
+            const webflow_update = await updateWebflowItem('6613d5ab30544bc293e55431', item.itemId, htmlData, pageTitle, slug);
+            console.log("Webflow update successful", webflow_update);
+        } catch (error) {
+            console.error("Webflow update failed:", error);
+            return {
+                statusCode: 400,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: "Webflow update failed", error: error.toString() })
+            };
+        }
+        
+
+      // await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
+        return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message:"Data Updated Successfully"})
         };
-      }      
+
+ } catch (error) {
+    console.error("Notion or HTML processing error:", error);
+    return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: "Notion or HTML processing error", details: error.message })
+    };
+}
+
         /**
          * Fetch the collection and check whether the item exist in any collection or not
          * If item exist, fetch the collection and Item id and update data
          * If doesn't exist, Create new item and push the data.
          */
-
-        const response = await notion.blocks.children.list({
-            block_id: pageId,
-            page_size: 50,
-        });
-
-
-        const pageData = extractContent(response.results);
-        console.log(pageData)
-        const htmlData = convertToHTML(pageData);
-
-        if (!htmlData) {
-          return {
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `HTML conversion failed for page ID ${pageId}`})
-        };
-      }
     
-      console.log("item data :",item.itemId) 
-      await updateWebflowItem('6613d5ab30544bc293e55431', item.id, htmlData,pageTitle,slug);
-      if(!webflow_update){
-        return {
-            statusCode: 400,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: "Webflow update failed"})
-        };
-      }
-
-    await disconnectDatabase()
-   // await appendToNotionPage(parsedBody.pageId,"This content is pushed by serverless function")
-    return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message:"Data Updated Successfully"})
-    };
 };
 
 
