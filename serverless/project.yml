@@ -18,8 +18,7 @@ packages:
           web: true
           webSecure: false
           parameters: {}
-          environment: 
-            NOTION_TOKEN : 'secret_JWMvK7TSIwPKmp4DbHN8gwZFfBWujjbC8xYiHhVF1Ak'
-            WEBFLOW_API_TOKEN : '5d080ec8b13e7f6bc1bafd515d302606a08858b5dcfab7850537620dc4b49302'
+          environment: {}
           annotations: {}
           limits: {}
+
