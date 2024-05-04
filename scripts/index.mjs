@@ -240,14 +240,13 @@ async function callServerlessFunction(url, pageId) {
       console.log('Response from serverless function:', response.data);
       return response.data;
   } catch (error) {
-      console.error('Error calling serverless function:', error.response ? error.response.data : error.message);
+      console.error('Error calling serverless function:', error.message.data);
       //throw error; // Rethrow the error for further handling if necessary
   }
 }
 
 callServerlessFunction(
-  "https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-b22ceea5-ced4-4583-b687-5a5d7a133dab/sample/hello",
-  "309f61772589454aa3d4ffa6b5a9a9be"
+  "https://faas-blr1-8177d592.doserverless.co/api/v1/web/fn-b22ceea5-ced4-4583-b687-5a5d7a133dab/sample/hello","309f61772589454aa3d4ffa6b5a9a9be"
 );
 
 

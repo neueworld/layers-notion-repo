@@ -389,18 +389,38 @@ const fetchCollectionItems = async () => {
 };
 
 // (async () => {
-//   const response = await getCollectionItems("66176d53af1acf9c387a2e19");
-//   console.log(response)
-//   if (response && response.items) {
-//     response.items.forEach(item => {
-//       console.log(item,item.fieldData);
-//     });
-//   }
+
+//     const data = {name: "Data Testing",slug: "data-testing", data: "This is updated data",reference:"661cd95471e6e964192f0c34"}
+//     await createCollection("6613d5ab30544bc293e55431","66334c914ca100e01857613d",data)
 // })();
 
 
 //getCollection(siteId)
 
+// async function updateWebflowItemFull(collectionId, itemId, data) {
+//   const options = {
+//     method: 'PATCH',
+//     url: `https://api.webflow.com/v2/collections/${collectionId}/items/${itemId}`,
+//     headers: {
+//       accept: 'application/json',
+//       'content-type': 'application/json',
+//       authorization: `Bearer ${process.env.WEBFLOW_API_TOKEN}` // Use your Webflow API token
+//     },
+//     data: {
+//       isArchived: false,
+//       isDraft: false,
+//       fieldData: data
+//     }
+//   };
+
+//   try {
+//     //await publishCollectionItem(collectionId, [itemId])
+//     const response = await axios.request(options);
+//     console.log('Item updated successfully:', response.data);
+//   } catch (error) {
+//     console.error('Error updating item:',error);
+//   }
+// }
 // (async () => {
 //   const itemName = "What is Layers";
 //   const itemSlug = "what-is-layers";

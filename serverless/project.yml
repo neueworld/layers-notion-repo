@@ -4,6 +4,7 @@ environment:
   NOTION_TOKEN : 'secret_JWMvK7TSIwPKmp4DbHN8gwZFfBWujjbC8xYiHhVF1Ak'
   WEBFLOW_API_TOKEN : '5d080ec8b13e7f6bc1bafd515d302606a08858b5dcfab7850537620dc4b49302'
   DATABASE_URL: 'mongodb+srv://ace:PIAbLGXXP4BP7AaC@cluster0.esdgm.mongodb.net/layers-ajay'
+  NOTION_DATABASE: "a09e49e8b2d743c0806c4e8b0c9663dd"
 packages:
     - name: sample
       shared: false
