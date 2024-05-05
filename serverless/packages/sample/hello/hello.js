@@ -198,6 +198,19 @@ async function getItem(pageTitle,slug){
 
 }
 
+async function findItemInDB(pageId){
+  await connectToDatabase();
+     
+  try{
+    let dbPage = await Page.findOne({ pageId: pageId });
+    return dbPage
+  }catch(error){
+      console.error('Error updating lastUpdated time:', error);
+  }finally{
+      await disconnectDatabase()
+  }
+
+}
 /**Webflow function start here */
 
 async function updateWebflowItem(collectionId, itemId, richTextContent, itemName, slug) {
@@ -301,7 +314,6 @@ async function manageDatabaseItems(pageTitle, slug,htmlData) {
   }
 }
 
-
 async function updatepageData(pageId){
   
   if(!pageId){
@@ -347,7 +359,7 @@ async function updatepageData(pageId){
   };
 }
 }
-async function main() {
+exports.main = async function(event,context) {
 
     /**connect with mongoDB */
    // await connectToDatabase()
@@ -380,10 +392,11 @@ async function main() {
       // Iterate over each page from Notion
       for (let page of response.results) {
           const pageId = page.id;
+          console.log("PageId : ",pageId)
           const lastEditedTime = new Date(page.last_edited_time);
 
           // Check if the page exists in the MongoDB
-          let dbPage = await Page.findOne({ pageId: pageId });
+          let dbPage = await findItemInDB(pageId)
 
           if (!dbPage) {
               // If the page does not exist, create it
@@ -416,5 +429,4 @@ async function main() {
 
 };
 
-main()
 
